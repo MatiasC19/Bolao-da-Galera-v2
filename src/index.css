@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --blue: #0033A0;
+  --red: #CC0000;
+  --gold: #C9A84C;
+  --green: #0a7f44;
+  --ink: #0b1120;
+  --muted: #6b7a99;
+  --bg: #e8ecf5;
+  --glass: rgba(255,255,255,0.6);
+  --gborder: rgba(255,255,255,0.78);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* prevents iOS zoom-on-input without disabling pinch-zoom for accessibility */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+  margin: 0;
+  /* fluid base font: never shrinks below readable, scales gently on small phones */
+  font-size: clamp(14px, 1vw + 11px, 16px);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+/* iOS form-zoom prevention: inputs must never compute below 16px */
+input, select, textarea {
+  font-size: max(16px, 1em);
+}
+
+button {
+  -webkit-appearance: none;
+  touch-action: manipulation;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(0,51,160,.18); border-radius: 8px; }
+
+.font-display { font-family: 'Bebas Neue', sans-serif; }
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--gborder);
+}
+
+/* visible focus ring for keyboard nav, never removed */
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Fluid flag/avatar boxes never overflow their grid cell */
+.flag-box {
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+.flag-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* truncation utility used everywhere a team name might be long on narrow screens */
+.truncate-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
