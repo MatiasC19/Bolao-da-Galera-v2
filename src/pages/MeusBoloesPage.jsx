@@ -40,8 +40,15 @@ export default function MeusBoloesPage({ onSelectBolao }) {
             const bolao = allBoloes[id];
             const myName = map[id];
             const numJogos = Object.keys(bolao.matches || {}).length;
-            const numPalpites = Object.values(bolao.bets || {}).reduce((acc, obj) => acc + Object.keys(obj || {}).length, 0);
-            const myBetsCount = Object.values(bolao.bets || {}).filter((obj) => obj && obj[myName]).length;
+            // count every individual bet (array length), not just distinct bettors/matches
+            const numPalpites = Object.values(bolao.bets || {}).reduce((acc, matchBets) => {
+              return acc + Object.values(matchBets || {}).reduce((a2, raw) => a2 + (Array.isArray(raw) ? raw.length : 1), 0);
+            }, 0);
+            const myBetsCount = Object.values(bolao.bets || {}).reduce((acc, matchBets) => {
+              const raw = matchBets && matchBets[myName];
+              if (!raw) return acc;
+              return acc + (Array.isArray(raw) ? raw.length : 1);
+            }, 0);
             return (
               <motion.div
                 key={id}

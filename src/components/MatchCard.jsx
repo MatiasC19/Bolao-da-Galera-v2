@@ -157,10 +157,10 @@ export function ListMatchCard({ match, bets, players, valor, onOpenBet }) {
                 >
                   {initials(p)}
                 </div>
-                <div className={`text-[13px] flex-1 min-w-[70px] truncate-1 ${status === true ? 'font-extrabold text-[#7a5c10]' : 'font-semibold'}`}>
-                  {p}
-                  {total > 1 && <span className="text-[9px] font-extrabold text-white bg-brblue rounded px-1.5 ml-1 align-middle">#{idx + 1}</span>}
-                  {status === true && <TrophyIcon className="inline w-3 h-3 text-brgold ml-1 -translate-y-px" />}
+                <div className={`flex items-center gap-1 flex-1 min-w-0 ${status === true ? 'font-extrabold text-[#7a5c10]' : 'font-semibold'}`}>
+                  <span className="text-[13px] truncate min-w-0">{p}</span>
+                  {total > 1 && <span className="text-[9px] font-extrabold text-white bg-brblue rounded px-1.5 shrink-0">#{idx + 1}</span>}
+                  {status === true && <TrophyIcon className="inline w-3 h-3 text-brgold shrink-0 -translate-y-px" />}
                 </div>
                 <div className={`font-display text-xl tracking-wider ${status === true ? 'text-[#8a6a1f]' : 'text-brblue'}`}>{b}</div>
                 <span className="text-[10px] font-bold text-brgreen bg-brgreen/10 border border-brgreen/15 rounded-full px-1.5 py-0.5 whitespace-nowrap">

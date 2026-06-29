@@ -12,7 +12,12 @@ function TrophyIcon() {
 
 export default function BolaoCard({ bolao, onClick, badge, footerOverride }) {
   const numJogos = Object.keys(bolao.matches || {}).length;
-  const numPalpites = Object.values(bolao.bets || {}).reduce((acc, obj) => acc + Object.keys(obj || {}).length, 0);
+  // each value in bets[matchId][playerName] can be a single score (string) or
+  // an array of scores (multiple bets by the same person on that match) — we
+  // must count every individual bet, not just the number of distinct bettors
+  const numPalpites = Object.values(bolao.bets || {}).reduce((acc, matchBets) => {
+    return acc + Object.values(matchBets || {}).reduce((a2, raw) => a2 + (Array.isArray(raw) ? raw.length : 1), 0);
+  }, 0);
   const totalArrecadado = numPalpites * (bolao.valor || 10);
 
   return (
