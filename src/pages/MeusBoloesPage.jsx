@@ -40,6 +40,7 @@ export default function MeusBoloesPage({ onSelectBolao }) {
             const bolao = allBoloes[id];
             const myName = map[id];
             const numJogos = Object.keys(bolao.matches || {}).length;
+            const numPalpites = Object.values(bolao.bets || {}).reduce((acc, obj) => acc + Object.keys(obj || {}).length, 0);
             const myBetsCount = Object.values(bolao.bets || {}).filter((obj) => obj && obj[myName]).length;
             return (
               <motion.div
@@ -63,7 +64,7 @@ export default function MeusBoloesPage({ onSelectBolao }) {
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <Stat n={(bolao.players || []).length} label="Pessoas" />
+                  <Stat n={numPalpites} label="Palpites" />
                   <Stat n={numJogos} label="Jogos" />
                   <Stat n={myBetsCount} label="Seus Palpites" />
                 </div>

@@ -4,6 +4,7 @@ import Flag from '../components/Flag';
 import { TEAMS, PHASES, team, avatarColor, initials } from '../data/teams';
 import { useApp } from '../state/AppContext';
 import { useConfirm } from '../components/ConfirmDialog';
+import { betsOf, isExactWinner } from '../lib/betLogic';
 
 export default function AdminPage() {
   const { allBoloes, isAdminOf, grantAdminAccess, showToast } = useApp();
@@ -141,6 +142,38 @@ function AdminBolaoCard({ id, bolao }) {
     showToast('Participante e seus palpites removidos', 'inf');
   };
 
+  // ── per-bet edit/delete (admin only) ──────────────────────────────────
+  // A "bet" is identified by matchId + player name + index within that
+  // player's array of scores for that match (since one person can have
+  // more than one bet on the same game).
+  const editBet = async (matchId, name, betIdx, newScore) => {
+    const bets = bolao.bets || {};
+    const list = betsOf(bets, matchId, name);
+    if (betIdx < 0 || betIdx >= list.length) return;
+    const newList = list.slice();
+    newList[betIdx] = newScore;
+    const newBets = { ...bets, [matchId]: { ...(bets[matchId] || {}), [name]: newList } };
+    await updateBolaoById(id, { bets: newBets });
+    showToast(`Palpite de ${name} atualizado para ${newScore}`);
+  };
+
+  const deleteBet = async (matchId, name, betIdx) => {
+    const bets = bolao.bets || {};
+    const list = betsOf(bets, matchId, name);
+    if (betIdx < 0 || betIdx >= list.length) return;
+    const ok = await confirm(`Excluir o palpite "${list[betIdx]}" de ${name} neste jogo?`);
+    if (!ok) return;
+    const newList = list.filter((_, idx) => idx !== betIdx);
+    const newBets = { ...bets, [matchId]: { ...(bets[matchId] || {}) } };
+    if (newList.length > 0) {
+      newBets[matchId][name] = newList;
+    } else {
+      delete newBets[matchId][name];
+    }
+    await updateBolaoById(id, { bets: newBets });
+    showToast('Palpite excluído', 'inf');
+  };
+
   return (
     <div className="glass rounded-[20px] shadow-md p-4 sm:p-5">
       <div className="flex items-center gap-2.5 mb-3.5 flex-wrap">
@@ -195,7 +228,17 @@ function AdminBolaoCard({ id, bolao }) {
           <div className="text-muted text-[13px]">Nenhum jogo cadastrado ainda</div>
         ) : (
           matches.map((m, i) => (
-            <AdminMatchRow key={m.id} match={m} onDelete={() => delMatch(i)} onSetResult={(h, a) => setResult(i, h, a)} onClearResult={() => clearResult(i)} />
+            <AdminMatchRow
+              key={m.id}
+              match={m}
+              bets={bolao.bets || {}}
+              players={players}
+              onDelete={() => delMatch(i)}
+              onSetResult={(h, a) => setResult(i, h, a)}
+              onClearResult={() => clearResult(i)}
+              onEditBet={(name, betIdx, newScore) => editBet(m.id, name, betIdx, newScore)}
+              onDeleteBet={(name, betIdx) => deleteBet(m.id, name, betIdx)}
+            />
           ))
         )}
       </div>
@@ -239,11 +282,17 @@ function SelectField({ label, value, onChange, teams }) {
   );
 }
 
-function AdminMatchRow({ match, onDelete, onSetResult, onClearResult }) {
+function AdminMatchRow({ match, bets, players, onDelete, onSetResult, onClearResult, onEditBet, onDeleteBet }) {
   const h = team(match.home), a = team(match.away);
   const [rh, setRh] = useState(match.res ? match.res.split(':')[0] : '');
   const [ra, setRa] = useState(match.res ? match.res.split(':')[1] : '');
+  const [expanded, setExpanded] = useState(false);
   const dl = new Date(match.dl).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+  const res = match.res || null;
+  const bettorRows = players.flatMap((p) =>
+    betsOf(bets, match.id, p).map((b, idx) => ({ p, b, idx }))
+  );
 
   return (
     <div className="flex items-center gap-2.5 p-3 sm:p-3.5 rounded-2xl bg-white/45 border border-white/65 flex-wrap">
@@ -279,6 +328,104 @@ function AdminMatchRow({ match, onDelete, onSetResult, onClearResult }) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /></svg>
           Remover jogo
         </button>
+      </div>
+
+      <div className="w-full border-t border-dashed border-brblue/10 pt-2.5 mt-1">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-1.5 text-[11px] font-bold text-brblue hover:underline"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`w-3 h-3 transition-transform ${expanded ? 'rotate-90' : ''}`}>
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+          {bettorRows.length} palpite{bettorRows.length !== 1 ? 's' : ''} neste jogo {expanded ? '— ocultar' : '— ver e editar'}
+        </button>
+
+        {expanded && (
+          <div className="flex flex-col gap-1.5 mt-2.5">
+            {bettorRows.length === 0 ? (
+              <div className="text-[12px] text-muted">Nenhum palpite registrado ainda neste jogo.</div>
+            ) : (
+              bettorRows.map(({ p, b, idx }) => (
+                <BettorRow
+                  key={`${p}-${idx}`}
+                  name={p}
+                  score={b}
+                  status={isExactWinner(b, res)}
+                  onSave={(newScore) => onEditBet(p, idx, newScore)}
+                  onDelete={() => onDeleteBet(p, idx)}
+                />
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** One editable row for a single bet inside the admin's expanded match view. */
+function BettorRow({ name, score, status, onSave, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [h0, a0] = score.split(':');
+  const [eh, setEh] = useState(h0 || '');
+  const [ea, setEa] = useState(a0 || '');
+
+  const save = () => {
+    if (eh === '' || ea === '' || isNaN(+eh) || isNaN(+ea)) return;
+    onSave(`${eh}:${ea}`);
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setEh(h0 || '');
+    setEa(a0 || '');
+    setEditing(false);
+  };
+
+  return (
+    <div className={`flex items-center gap-2 px-2.5 py-2 rounded-xl flex-wrap
+      ${status === true ? 'bg-brgold/10 border border-brgold/30' : 'bg-white/55 border border-white/70'}`}>
+      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0" style={{ background: avatarColor(name) }}>
+        {initials(name)}
+      </div>
+      <span className="text-[12.5px] font-semibold truncate-1 max-w-[110px]">{name}</span>
+
+      {editing ? (
+        <div className="flex items-center gap-1.5">
+          <input type="number" inputMode="numeric" min="0" max="20" value={eh} onChange={(e) => setEh(e.target.value)}
+            className="w-9 h-7 border border-brblue/25 rounded-md bg-white text-center font-display text-sm text-brblue outline-none focus:border-brblue" />
+          <span className="font-display text-sm text-slate-300">×</span>
+          <input type="number" inputMode="numeric" min="0" max="20" value={ea} onChange={(e) => setEa(e.target.value)}
+            className="w-9 h-7 border border-brblue/25 rounded-md bg-white text-center font-display text-sm text-brblue outline-none focus:border-brblue" />
+        </div>
+      ) : (
+        <span className={`font-display text-base tracking-wider ${status === true ? 'text-[#8a6a1f]' : 'text-brblue'}`}>{score}</span>
+      )}
+
+      <div className="flex items-center gap-1.5 ml-auto">
+        {editing ? (
+          <>
+            <button onClick={save} className="flex items-center gap-1 px-2 py-1 rounded-md text-brgreen border border-brgreen/20 text-[10px] font-bold hover:bg-brgreen/5 transition-colors">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5"><polyline points="20 6 9 17 4 12" /></svg>
+              Salvar
+            </button>
+            <button onClick={cancel} className="px-2 py-1 rounded-md text-muted border border-muted/20 text-[10px] font-bold hover:bg-muted/5 transition-colors">
+              Cancelar
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => setEditing(true)} title="Editar palpite" className="flex items-center gap-1 px-2 py-1 rounded-md text-brblue border border-brblue/20 text-[10px] font-bold hover:bg-brblue/5 transition-colors">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+              Editar
+            </button>
+            <button onClick={onDelete} title="Excluir palpite" className="flex items-center gap-1 px-2 py-1 rounded-md text-brred border border-brred/20 text-[10px] font-bold hover:bg-brred/5 transition-colors">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /></svg>
+              Excluir
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

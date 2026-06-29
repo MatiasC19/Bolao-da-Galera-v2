@@ -40,7 +40,7 @@ export default function BolaoCard({ bolao, onClick, badge, footerOverride }) {
       </div>
       {footerOverride || (
         <div className="grid grid-cols-3 gap-2 mt-2.5">
-          <StatChip n={(bolao.players || []).length} label="Pessoas" />
+          <StatChip n={numPalpites} label="Palpites" />
           <StatChip n={numJogos} label="Jogos" />
           <StatChip n={`R$${totalArrecadado.toLocaleString('pt-BR')}`} label="Total" />
         </div>
